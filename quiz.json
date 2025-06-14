@@ -1,0 +1,12 @@
+[
+  {
+    "photo": "photos/bus.jpg",
+    "options": ["Bus", "Train", "Tram", "Bicycle"],
+    "answer": "Bus"
+  },
+  {
+    "photo": "photos/train.jpg",
+    "options": ["Car", "Bus", "Train", "Plane"],
+    "answer": "Train"
+  }
+]
