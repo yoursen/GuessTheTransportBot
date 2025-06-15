@@ -20,11 +20,35 @@ user_data = {}
 
 load_dotenv()
 
-def get_random_question():
-    return random.choice(QUIZ)
+def get_random_question(questions_asked=None):
+    """
+    Get a random question that hasn't been asked before.
+    
+    Args:
+        questions_asked (list): List of indices of questions that have been asked already
+        
+    Returns:
+        dict: A question that hasn't been asked yet, or None if all questions have been asked
+    """
+    if questions_asked is None:
+        questions_asked = []
+    
+    # Get indices of questions that haven't been asked yet
+    available_indices = [i for i in range(len(QUIZ)) if i not in questions_asked]
+    
+    # If all questions have been asked, return None
+    if not available_indices:
+        return None
+    
+    # Select a random question from the available ones
+    question_index = random.choice(available_indices)
+    question = QUIZ[question_index]
+    
+    # Return both the question and its index
+    return question, question_index
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data[update.effective_user.id] = {'score': 0, 'asked': 0}
+    user_data[update.effective_user.id] = {'score': 0, 'asked': 0, 'questions_asked': []}
     # Create an inline keyboard with a button to start the quiz
     keyboard = [[InlineKeyboardButton("Start Quiz", callback_data="start_quiz")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -36,13 +60,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_data:
-        user_data[user_id] = {'score': 0, 'asked': 0}
+        user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
     await send_next_quiz(update.effective_chat.id, user_id, context)
 
 async def send_next_quiz(chat_id, user_id, context):
     try:
-        question = get_random_question()
+        # Get a random question that hasn't been asked yet
+        result = get_random_question(user_data[user_id].get('questions_asked', []))
+        
+        # If all questions have been asked
+        if result is None:
+            final_score = user_data[user_id]['score']
+            total_questions = user_data[user_id]['asked']
+            
+            # Create a keyboard with a restart button
+            keyboard = [[InlineKeyboardButton("Play Again", callback_data="restart_quiz")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"🎮 Quiz completed! 🎮\n\nYour final score: {final_score}/{total_questions}\n\nThank you for playing! Press the button below to play again.",
+                reply_markup=reply_markup
+            )
+            return
+        
+        question, question_index = result
+        
+        # Add this question to the list of asked questions
+        user_data[user_id]['questions_asked'].append(question_index)
         user_data[user_id]['current'] = question
+        
         keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in question['options']]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -71,7 +118,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle the start quiz button
     if query.data == "start_quiz":
         if user_id not in user_data:
-            user_data[user_id] = {'score': 0, 'asked': 0}
+            user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
+        await send_next_quiz(query.message.chat_id, user_id, context)
+        return
+    
+    # Handle the restart quiz button
+    if query.data == "restart_quiz":
+        user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
         await send_next_quiz(query.message.chat_id, user_id, context)
         return
     
