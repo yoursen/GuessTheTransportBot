@@ -40,12 +40,28 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_next_quiz(update.effective_chat.id, user_id, context)
 
 async def send_next_quiz(chat_id, user_id, context):
-    question = get_random_question()
-    user_data[user_id]['current'] = question
-    keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in question['options']]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    with open(question['photo'], 'rb') as photo:
-        await context.bot.send_photo(chat_id=chat_id, photo=photo, caption="What is this transport?", reply_markup=reply_markup)
+    try:
+        question = get_random_question()
+        user_data[user_id]['current'] = question
+        keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in question['options']]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Verify the photo file exists
+        if not os.path.exists(question['photo']):
+            logger.error(f"Photo file not found: {question['photo']}")
+            raise FileNotFoundError(f"Photo file not found: {question['photo']}")
+            
+        with open(question['photo'], 'rb') as photo:
+            await context.bot.send_photo(chat_id=chat_id, photo=photo, caption="What is this transport?", reply_markup=reply_markup)
+    except Exception as e:
+        logger.error(f"Error in send_next_quiz: {str(e)}")
+        keyboard = [[InlineKeyboardButton("Start new game", callback_data="start_quiz")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Sorry, there was an error loading the question. Please start a new game.",
+            reply_markup=reply_markup
+        )
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -57,6 +73,17 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id not in user_data:
             user_data[user_id] = {'score': 0, 'asked': 0}
         await send_next_quiz(query.message.chat_id, user_id, context)
+        return
+    
+    # Check if user data exists or if we lost state due to server restart
+    if user_id not in user_data or 'current' not in user_data[user_id]:
+        # Server probably restarted and lost user state
+        keyboard = [[InlineKeyboardButton("Start new game", callback_data="start_quiz")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_caption(
+            caption="Sorry, there was an error or the server restarted. Please start a new game.",
+            reply_markup=reply_markup
+        )
         return
     
     # Handle quiz answer buttons
@@ -79,9 +106,22 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def send_next_quiz_with_delay(chat_id, user_id, context):
-    # Wait for 2 seconds before sending the next quiz item
-    await asyncio.sleep(1)
-    await send_next_quiz(chat_id, user_id, context)
+    try:
+        # Wait for 2 seconds before sending the next quiz item
+        await asyncio.sleep(1)
+        await send_next_quiz(chat_id, user_id, context)
+    except Exception as e:
+        logger.error(f"Error in send_next_quiz_with_delay: {str(e)}")
+        try:
+            keyboard = [[InlineKeyboardButton("Start new game", callback_data="start_quiz")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="Sorry, there was an error sending the next question. Please start a new game.",
+                reply_markup=reply_markup
+            )
+        except Exception as inner_e:
+            logger.error(f"Failed to send error message: {str(inner_e)}")
 
 def main():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
