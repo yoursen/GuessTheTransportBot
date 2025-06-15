@@ -25,8 +25,12 @@ def get_random_question():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[update.effective_user.id] = {'score': 0, 'asked': 0}
+    # Create an inline keyboard with a button to start the quiz
+    keyboard = [[InlineKeyboardButton("Start Quiz", callback_data="start_quiz")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Welcome to the Transport Quiz!\nI will send you a photo of a transport, and you must guess what it is. Type /quiz to start!"
+        "Welcome to the Transport Quiz!\nI will send you a photo of a transport, and you must guess what it is. Press the button below to start!",
+        reply_markup=reply_markup
     )
 
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -47,6 +51,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    
+    # Handle the start quiz button
+    if query.data == "start_quiz":
+        if user_id not in user_data:
+            user_data[user_id] = {'score': 0, 'asked': 0}
+        await send_next_quiz(query.message.chat_id, user_id, context)
+        return
+    
+    # Handle quiz answer buttons
     question = user_data[user_id]['current']
     answer = question['answer']
     user_data[user_id]['asked'] += 1
@@ -67,7 +80,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def send_next_quiz_with_delay(chat_id, user_id, context):
     # Wait for 2 seconds before sending the next quiz item
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
     await send_next_quiz(chat_id, user_id, context)
 
 def main():
