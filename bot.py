@@ -2,6 +2,7 @@ import logging
 import json
 import random
 import os
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 from dotenv import load_dotenv
@@ -29,12 +30,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_data:
+        user_data[user_id] = {'score': 0, 'asked': 0}
+    await send_next_quiz(update.effective_chat.id, user_id, context)
+
+async def send_next_quiz(chat_id, user_id, context):
     question = get_random_question()
-    user_data[update.effective_user.id]['current'] = question
+    user_data[user_id]['current'] = question
     keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in question['options']]
     reply_markup = InlineKeyboardMarkup(keyboard)
     with open(question['photo'], 'rb') as photo:
-        await update.message.reply_photo(photo=photo, caption="What is this transport?", reply_markup=reply_markup)
+        await context.bot.send_photo(chat_id=chat_id, photo=photo, caption="What is this transport?", reply_markup=reply_markup)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -50,8 +57,18 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"❌ Wrong! The correct answer was: {answer}"
     text += f"\nScore: {user_data[user_id]['score']}/{user_data[user_id]['asked']}"
     await query.edit_message_caption(caption=text)
-    # Send next question
-    await quiz(query, context)
+    
+    # Send next question automatically after a 2-second delay
+    # This gives the user time to see the result of their answer
+    chat_id = query.message.chat_id
+    context.application.create_task(
+        send_next_quiz_with_delay(chat_id, user_id, context)
+    )
+
+async def send_next_quiz_with_delay(chat_id, user_id, context):
+    # Wait for 2 seconds before sending the next quiz item
+    await asyncio.sleep(2)
+    await send_next_quiz(chat_id, user_id, context)
 
 def main():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
