@@ -55,11 +55,23 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
+    env = os.getenv('ENV', 'development')
+    logger.info(f"Running in {env} mode")
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('quiz', quiz))
     app.add_handler(CallbackQueryHandler(button))
-    app.run_polling()
+    if env != 'development':
+        # Start webhook for production
+        app.run_webhook(
+            listen='0.0.0.0',
+            port=int(os.environ.get('PORT', 10000)),
+            url_path=token,
+            webhook_url=os.environ.get('WEBHOOK_URL')
+        )
+    else:
+        # Use polling for development
+        app.run_polling()
 
 if __name__ == '__main__':
     main()
