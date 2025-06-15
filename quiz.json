@@ -1,12 +1,17 @@
 [
   {
-    "photo": "photos/bus.jpg",
-    "options": ["Bus", "Train", "Tram", "Bicycle"],
-    "answer": "Bus"
+    "photo": "photos/Tatra T6A2.jpg",
+    "options": ["Tatra T6A2", "Siemens M3000", "Škoda UltraTram 15", "Tatra T3"],
+    "answer": "Tatra T6A2"
   },
   {
-    "photo": "photos/train.jpg",
-    "options": ["Car", "Bus", "Train", "Plane"],
-    "answer": "Train"
+    "photo": "photos/PCC 7000-series.jpg",
+    "options": ["CAF Translohr SL100", "PCC 7000-series", "Škoda VintageLine T21", "Alstom Citadis Heritage"],
+    "answer": "PCC 7000-series"
+  },
+  {
+    "photo": "photos/Tatra T3.jpg",
+    "options": ["Tatra T6A2", "Siemens M3000", "Škoda UltraTram 15", "Tatra T3"],
+    "answer": "Tatra T3"
   }
 ]
