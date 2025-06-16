@@ -132,12 +132,16 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "start_quiz":
         if user_id not in user_data:
             user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
+        # Add this chat to active chats
+        active_chats.add(query.message.chat_id)
         await send_next_quiz(query.message.chat_id, user_id, context)
         return
     
     # Handle the restart quiz button
     if query.data == "restart_quiz":
         user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
+        # Add this chat to active chats
+        active_chats.add(query.message.chat_id)
         await send_next_quiz(query.message.chat_id, user_id, context)
         return
     
