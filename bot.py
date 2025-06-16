@@ -4,7 +4,7 @@ import random
 import os
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
 
 QUIZ_FILE = 'quiz.json'
@@ -17,8 +17,13 @@ with open(QUIZ_FILE, 'r') as f:
     QUIZ = json.load(f)
 
 user_data = {}
+# Set to track active chat IDs for broadcast messages
+active_chats = set()
 
 load_dotenv()
+
+# Bot owner Telegram ID (should be set in .env file)
+BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))  # Default to 0 if not set
 
 def get_random_question(questions_asked=None):
     """
@@ -49,6 +54,10 @@ def get_random_question(questions_asked=None):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[update.effective_user.id] = {'score': 0, 'asked': 0, 'questions_asked': []}
+    
+    # Add this chat to active chats
+    active_chats.add(update.effective_chat.id)
+    
     # Create an inline keyboard with a button to start the quiz
     keyboard = [[InlineKeyboardButton("Start Quiz", callback_data="start_quiz")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -61,6 +70,10 @@ async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_data:
         user_data[user_id] = {'score': 0, 'asked': 0, 'questions_asked': []}
+    
+    # Add this chat to active chats
+    active_chats.add(update.effective_chat.id)
+    
     await send_next_quiz(update.effective_chat.id, user_id, context)
 
 async def send_next_quiz(chat_id, user_id, context):
@@ -176,6 +189,40 @@ async def send_next_quiz_with_delay(chat_id, user_id, context):
         except Exception as inner_e:
             logger.error(f"Failed to send error message: {str(inner_e)}")
 
+async def msg_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Send a message to all active chats. Only usable by the bot owner.
+    Usage: /msgall Your message here
+    """
+    user_id = update.effective_user.id
+    
+    # Check if the command is being used by the bot owner
+    if user_id != BOT_OWNER_ID:
+        await update.message.reply_text("⛔ Sorry, this command is only available to the bot owner.")
+        return
+    
+    # Get the message to broadcast
+    if not context.args:
+        await update.message.reply_text("Usage: /msgall Your message here")
+        return
+    
+    broadcast_message = " ".join(context.args)
+    
+    # Count of successful deliveries
+    success_count = 0
+    
+    # Send message to all active chats
+    for chat_id in list(active_chats):
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=broadcast_message)
+            success_count += 1
+        except Exception as e:
+            logger.error(f"Failed to send message to chat {chat_id}: {str(e)}")
+            # If we can't send a message, this chat is probably no longer active
+            active_chats.discard(chat_id)
+    
+    await update.message.reply_text(f"✅ Message sent to {success_count} active chats.")
+
 def main():
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     env = os.getenv('ENV', 'development')
@@ -183,6 +230,7 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('quiz', quiz))
+    app.add_handler(CommandHandler('msgall', msg_all))
     app.add_handler(CallbackQueryHandler(button))
     if env != 'development':
         # Start webhook for production

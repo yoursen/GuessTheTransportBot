@@ -11,6 +11,7 @@ GuessTheTransportBot is a simple Telegram bot game where users are shown a photo
 - Checks if the user's answer is correct
 - Provides feedback on the answer
 - Designed for fun and learning about different types of transport
+- Bot owner can broadcast messages to all active users
 
 ## How to Play
 1. Start the bot in Telegram.
@@ -27,17 +28,25 @@ GuessTheTransportBot is a simple Telegram bot game where users are shown a photo
 ## Requirements
 - Python 3.x
 - Telegram Bot API token
-- Required Python packages (see `bot.py` for details)
+- Required Python packages (see `requirements.txt` for details)
 
 ## Setup
 1. Clone this repository.
-2. Add your Telegram Bot API token to `bot.py`.
+2. Create a `.env` file with the following configuration:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_token_here
+   BOT_OWNER_ID=your_telegram_id_here
+   ENV=development
+   ```
 3. Make sure the `photos/` folder contains the required images.
 4. Run the bot:
    ```bash
    python bot.py
    ```
 5. Start chatting with your bot on Telegram!
+
+## Admin Commands
+- `/msgall [message]` - Sends a message to all active chats (only available to the bot owner)
 
 ## License
 MIT License
